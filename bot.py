@@ -29,7 +29,7 @@ def run_web_server():
 threading.Thread(target=run_web_server, daemon=True).start()
 
 # ----------------------------------------------------
-# 2. BOT CONFIGURATION (WITH YOUR NEW TOKEN)
+# 2. BOT CONFIGURATION
 # ----------------------------------------------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc")
 AD_LINK_1 = os.environ.get("AD_LINK_1", "https://example.com/ad1")
@@ -55,4 +55,47 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
             InlineKeyboardButton("🔓 Verify Ad 1", url=AD_LINK_1),
-            InlineKeyboardButton("
+            InlineKeyboardButton("🔓 Verify Ad 2", url=AD_LINK_2)
+        ],
+        [
+            InlineKeyboardButton("📥 Download File", callback_data=f"get_file:{query}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        f"🔍 **Search Query:** `{query}`\n\n"
+        "⚠️ Complete both ad verification steps below to unlock your file download link!",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
+
+async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    if data.startswith("get_file:"):
+        search_query = data.split("get_file:")[1]
+        await query.message.reply_text(
+            f"✅ **Verification Complete!**\n\n"
+            f"Here is your file for: `{search_query}`\n"
+            "⚠️ Note: This link will auto-delete in 10 minutes due to copyright policy.",
+            parse_mode="Markdown"
+        )
+
+# ----------------------------------------------------
+# 4. MAIN BOT RUNNER
+# ----------------------------------------------------
+def main():
+    print("Starting DesiFlix Search Bot...")
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
+    application.add_handler(CallbackQueryHandler(button_click_handler))
+
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
