@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 
 # ----------------------------------------------------
-# 1. RENDER PORT TIMEOUT FIX (Dummy Web Server)
+# 1. RENDER PORT SERVER
 # ----------------------------------------------------
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -25,27 +25,22 @@ def run_web_server():
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# Start background thread for Render Port
 threading.Thread(target=run_web_server, daemon=True).start()
 
 # ----------------------------------------------------
-# 2. BOT CONFIGURATION (HARDCODED ACTIVE TOKEN)
+# 2. BOT CONFIGURATION
 # ----------------------------------------------------
 BOT_TOKEN = "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc"
+# Aapke Adsterra Direct Links
 AD_LINK_1 = "https://example.com/ad1"
-AD_LINK_2 = "https://example.com/ad2"
 
 # ----------------------------------------------------
 # 3. HANDLERS & LOGIC
 # ----------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_first_name = update.effective_user.first_name
     welcome_text = (
-        f"👋 Welcome **{user_first_name}** to **DesiFlix Search Bot**!\n\n"
-        "🎬 Search for any movie, series, or video file by typing the name below.\n\n"
-        "✨ Features:\n"
-        "• Double Ad Verification System\n"
-        "• Fast Search & Auto-Delete Links for Copyright Protection"
+        "👋 Welcome to **DesiFlix Movie Search Bot**!\n\n"
+        "🎬 Type any movie or series name below to download."
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
@@ -54,18 +49,17 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [
-            InlineKeyboardButton("🔓 Verify Ad 1", url=AD_LINK_1),
-            InlineKeyboardButton("🔓 Verify Ad 2", url=AD_LINK_2)
+            InlineKeyboardButton("🔓 Step 1: Unlock Options (Ad 1)", url=AD_LINK_1)
         ],
         [
-            InlineKeyboardButton("📥 Download File", callback_data=f"get_file:{query}")
+            InlineKeyboardButton("⚡ Next: Select Quality & Audio", callback_data=f"show_qualities:{query}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        f"🔍 **Search Query:** `{query}`\n\n"
-        "⚠️ Complete both ad verification steps below to unlock your file download link!",
+        f"🎬 **Movie Found:** `{query}`\n\n"
+        "Pehle Step 1 Ad complete karein, phir Video Quality (480p/720p/1080p) choose karein.",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -75,13 +69,38 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     
     data = query.data
-    if data.startswith("get_file:"):
-        search_query = data.split("get_file:")[1]
+    
+    # When user clicks "Next: Select Quality & Audio"
+    if data.startswith("show_qualities:"):
+        movie_name = data.split("show_qualities:")[1]
+        
+        quality_keyboard = [
+            [
+                InlineKeyboardButton("📥 480p (400MB)", callback_data=f"dl:{movie_name}:480p"),
+                InlineKeyboardButton("📥 720p (900MB)", callback_data=f"dl:{movie_name}:720p")
+            ],
+            [
+                InlineKeyboardButton("📥 1080p (1.8GB)", callback_data=f"dl:{movie_name}:1080p")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(quality_keyboard)
+        
         await query.message.reply_text(
-            f"✅ **Verification Complete!**\n\n"
-            f"Here is your file for: `{search_query}`\n"
-            "⚠️ Note: This link will auto-delete in 10 minutes due to copyright policy.",
+            f"✅ **Ad Verified! Select Quality for {movie_name}:**",
+            reply_markup=reply_markup,
             parse_mode="Markdown"
+        )
+        
+    # When user clicks any quality button
+    elif data.startswith("dl:"):
+        _, movie_name, quality = data.split(":")
+        
+        await query.message.reply_text(
+            f"🎉 **Here is your link for {movie_name} ({quality}):**\n\n"
+            f"🔗 [Click Here to Stream / Download File](https://example.com/download)\n\n"
+            "⚠️ Link auto-deletes in 10 minutes.",
+            parse_mode="Markdown",
+            disable_web_page_preview=True
         )
 
 # ----------------------------------------------------
