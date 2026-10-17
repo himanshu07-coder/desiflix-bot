@@ -30,7 +30,7 @@ threading.Thread(target=run_web_server, daemon=True).start()
 # ----------------------------------------------------
 # 2. BOT CONFIGURATION
 # ----------------------------------------------------
-BOT_TOKEN = "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc"
+BOT_TOKEN = "8973049098:AAFepZfuRHomPNUwBss5n-gHncnacwWxFSs"
 # Aapka Adsterra Direct Link
 AD_LINK_1 = "https://example.com/ad1"
 
