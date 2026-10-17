@@ -12,13 +12,13 @@ logging.basicConfig(
 )
 
 # ----------------------------------------------------
-# 1. RENDER PORT SERVER
+# 1. RENDER PORT SERVER (Prevents Timeout)
 # ----------------------------------------------------
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"DesiFlix Search Bot is Running Live 24/7!")
+        self.wfile.write(b"DesiFlix Search Bot is Active 24/7!")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -31,16 +31,16 @@ threading.Thread(target=run_web_server, daemon=True).start()
 # 2. BOT CONFIGURATION
 # ----------------------------------------------------
 BOT_TOKEN = "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc"
-# Aapke Adsterra Direct Links
+# Aapka Adsterra Direct Link
 AD_LINK_1 = "https://example.com/ad1"
 
 # ----------------------------------------------------
-# 3. HANDLERS & LOGIC
+# 3. HANDLERS
 # ----------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
-        "👋 Welcome to **DesiFlix Movie Search Bot**!\n\n"
-        "🎬 Type any movie or series name below to download."
+        "👋 **Welcome to DesiFlix Search Bot!**\n\n"
+        "🎬 Type any movie or series name below to search and unlock download links."
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
@@ -49,10 +49,10 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [
-            InlineKeyboardButton("🔓 Step 1: Unlock Options (Ad 1)", url=AD_LINK_1)
+            InlineKeyboardButton("🔓 Step 1: Unlock Quality Options (Ad 1)", url=AD_LINK_1)
         ],
         [
-            InlineKeyboardButton("⚡ Next: Select Quality & Audio", callback_data=f"show_qualities:{query}")
+            InlineKeyboardButton("⚡ Next: Select Quality & Audio", callback_data=f"show_q:{query}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -70,9 +70,8 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     
     data = query.data
     
-    # When user clicks "Next: Select Quality & Audio"
-    if data.startswith("show_qualities:"):
-        movie_name = data.split("show_qualities:")[1]
+    if data.startswith("show_q:"):
+        movie_name = data.split("show_q:")[1]
         
         quality_keyboard = [
             [
@@ -91,7 +90,6 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             parse_mode="Markdown"
         )
         
-    # When user clicks any quality button
     elif data.startswith("dl:"):
         _, movie_name, quality = data.split(":")
         
@@ -104,10 +102,10 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
 # ----------------------------------------------------
-# 4. MAIN BOT RUNNER
+# 4. MAIN APPLICATION
 # ----------------------------------------------------
 def main():
-    print("Starting DesiFlix Search Bot...")
+    print("Starting bot...")
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start_command))
