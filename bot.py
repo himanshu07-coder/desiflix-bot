@@ -29,11 +29,11 @@ def run_web_server():
 threading.Thread(target=run_web_server, daemon=True).start()
 
 # ----------------------------------------------------
-# 2. BOT CONFIGURATION
+# 2. BOT CONFIGURATION (HARDCODED ACTIVE TOKEN)
 # ----------------------------------------------------
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc")
-AD_LINK_1 = os.environ.get("AD_LINK_1", "https://example.com/ad1")
-AD_LINK_2 = os.environ.get("AD_LINK_2", "https://example.com/ad2")
+BOT_TOKEN = "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc"
+AD_LINK_1 = "https://example.com/ad1"
+AD_LINK_2 = "https://example.com/ad2"
 
 # ----------------------------------------------------
 # 3. HANDLERS & LOGIC
