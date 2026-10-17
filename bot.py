@@ -1,153 +1,101 @@
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
-import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# --- CONFIGURATION ---
-TELEGRAM_BOT_TOKEN = "8973049098:AAFNqZ2M15kBZGFiLRST7tsgoEnYnWPD0UY"
-TMDB_API_KEY = "f40f1b575b136f4946a922b5a08a55e0"
-
-# Adsterra Smartlinks (Aap ek hi link double use kar sakte hain ya do alag links)
-ADSTERRA_LINK_1 = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
-ADSTERRA_LINK_2 = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
-
-# Main Channel Username
-CHANNEL_USERNAME = "@Desi_cinema_hub"
-
+# Logging setup
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-WARNING_TEXT = (
-    "\n\n⚠️ **IMPORTANT NOTICE:**\n"
-    "Copyright issue ki waja se channel par video/file **10 Minutes mein delete** kar di jayegi!\n"
-    "📌 *Turant video ko apne Saved Messages mein forward/save kar lein.*"
-)
+# ----------------------------------------------------
+# 1. RENDER PORT TIMEOUT FIX (Dummy Web Server)
+# ----------------------------------------------------
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"DesiFlix Search Bot is Running Live 24/7!")
 
-# Start Handler
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+# Background Thread for Web Server
+threading.Thread(target=run_web_server, daemon=True).start()
+
+# ----------------------------------------------------
+# 2. BOT CONFIGURATION
+# ----------------------------------------------------
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8973049098:AAFNqZ2M15kBZGFiLRSt7tsgoEnYnWPDOUY")
+AD_LINK_1 = os.environ.get("AD_LINK_1", "https://example.com/ad1")
+AD_LINK_2 = os.environ.get("AD_LINK_2", "https://example.com/ad2")
+
+# ----------------------------------------------------
+# 3. HANDLERS & LOGIC
+# ----------------------------------------------------
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_first_name = update.effective_user.first_name
     welcome_text = (
-        "👋 **Welcome to All-in-One Custom Search Hub!**\n\n"
-        "🎬 **Movies & Series:** Select Quality (480p, 720p, 1080p) & Language!\n"
-        "💻 **Courses & Skills:** Select Teacher, Language & Batch!\n\n"
-        "👉 Bas apna item search karein!"
+        f"👋 Welcome **{user_first_name}** to **DesiFlix Search Bot**!\n\n"
+        "🎬 Search for any movie, series, or video file by typing the name below.\n\n"
+        "✨ Features:\n"
+        "• Double Ad Verification System\n"
+        "• Fast Search & Auto-Delete Links for Copyright Protection"
     )
-    await update.message.reply_text(welcome_text, parse_mode='Markdown')
+    await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
-# Search Handler
-async def smart_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_query = update.message.text.strip()
-    query_lower = user_query.lower()
+async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.message.text.strip()
     
-    is_course = any(word in query_lower for word in ['course', 'learn', 'tutorial', 'python', 'java', 'coding', 'editing', 'skill', 'playlist', 'dsa'])
-    
-    if is_course:
-        # COURSE FLOW
-        text = (
-            f"🎓 **Course Found:** `{user_query}`\n\n"
-            f"Pehle Step 1 Ad complete karein, phir Teacher & Language select karein."
-        )
-        keyboard = [
-            [InlineKeyboardButton("🔓 Step 1: Unlock Course Filters (Ad 1)", url=ADSTERRA_LINK_1)],
-            [InlineKeyboardButton("⚡ Next: Select Teacher & Language", callback_data=f"course_filter|{user_query}")]
+    keyboard = [
+        [
+            InlineKeyboardButton("🔓 Verify Ad 1", url=AD_LINK_1),
+            InlineKeyboardButton("🔓 Verify Ad 2", url=AD_LINK_2)
+        ],
+        [
+            InlineKeyboardButton("📥 Download File", callback_data=f"get_file:{query}")
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
-        
-    else:
-        # MOVIE FLOW
-        tmdb_url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={user_query}"
-        try:
-            res = requests.get(tmdb_url).json()
-            if res.get('results'):
-                movie = res['results'][0]
-                title = movie.get('title', user_query)
-                poster_path = movie.get('poster_path')
-                
-                text = (
-                    f"🎬 **Movie Found:** `{title}`\n\n"
-                    f"Pehle Step 1 Ad complete karein, phir Video Quality (480p/720p/1080p) choose karein."
-                )
-                keyboard = [
-                    [InlineKeyboardButton("🔓 Step 1: Unlock Quality Options (Ad 1)", url=ADSTERRA_LINK_1)],
-                    [InlineKeyboardButton("⚡ Next: Select Quality & Audio", callback_data=f"movie_filter|{title}")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                if poster_path:
-                    poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-                    await update.message.reply_photo(photo=poster_url, caption=text, reply_markup=reply_markup, parse_mode='Markdown')
-                else:
-                    await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
-            else:
-                # Fallback Movie/Series
-                text = f"🎬 **Content Found:** `{user_query}`\n\nPehle Step 1 Ad complete karein."
-                keyboard = [
-                    [InlineKeyboardButton("🔓 Step 1: Unlock Options (Ad 1)", url=ADSTERRA_LINK_1)],
-                    [InlineKeyboardButton("⚡ Next: Select Quality & Audio", callback_data=f"movie_filter|{user_query}")]
-                ]
-                await update.message.reply_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-        except Exception as e:
-            logging.error(f"Search Error: {e}")
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        f"🔍 **Search Query:** `{query}`\n\n"
+        "⚠️ Complete both ad verification steps below to unlock your file download link!",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
 
-# Callback Handler (Buttons Filtering)
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    data = query.data
     
-    if data.startswith("movie_filter"):
-        title = data.split("|")[1]
-        text = (
-            f"🎬 **Select Video Quality & Audio for:** `{title}`\n\n"
-            f"Apni choice select karein:"
+    data = query.data
+    if data.startswith("get_file:"):
+        search_query = data.split("get_file:")[1]
+        await query.message.reply_text(
+            f"✅ **Verification Complete!**\n\n"
+            f"Here is your file for: `{search_query}`\n"
+            "⚠️ Note: This link will auto-delete in 10 minutes due to copyright policy.",
+            parse_mode="Markdown"
         )
-        keyboard = [
-            [InlineKeyboardButton("🔊 Hindi Dual Audio - 480p (300MB)", callback_data=f"final_get|{title}|480p")],
-            [InlineKeyboardButton("🔊 Hindi Dual Audio - 720p (800MB)", callback_data=f"final_get|{title}|720p")],
-            [InlineKeyboardButton("🔊 Multi-Audio - 1080p Full HD (2GB)", callback_data=f"final_get|{title}|1080p")]
-        ]
-        await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
-    elif data.startswith("course_filter"):
-        title = data.split("|")[1]
-        text = (
-            f"🎓 **Select Course Teacher / Batch for:** `{title}`\n\n"
-            f"Apni preference select karein:"
-        )
-        keyboard = [
-            [InlineKeyboardButton("👨‍🏫 Complete Hindi Full Course (Best Teacher)", callback_data=f"final_get|{title}|Hindi")],
-            [InlineKeyboardButton("👨‍💻 English Complete Playlist & Notes", callback_data=f"final_get|{title}|English")],
-            [InlineKeyboardButton("🚀 Beginner to Advanced Live Batch", callback_data=f"final_get|{title}|Advanced")]
-        ]
-        await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-
-    elif data.startswith("final_get"):
-        parts = data.split("|")
-        item = parts[1]
-        selected_option = parts[2]
-        
-        text = (
-            f"✅ **Your Selection Ready:** `{item}` ({selected_option})\n\n"
-            f"👇 Video/File access karne ke liye Final Step Ad complete karein aur channel par file paayein!"
-            f"{WARNING_TEXT}"
-        )
-        keyboard = [
-            [InlineKeyboardButton("📥 Step 2: Final Link Unlock (Ad 2)", url=ADSTERRA_LINK_2)],
-            [InlineKeyboardButton("📢 Get File From Official Channel", url=f"https://t.me/{CHANNEL_USERNAME.replace('@', '')}")]
-        ]
-        await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-
+# ----------------------------------------------------
+# 4. MAIN BOT RUNNER
+# ----------------------------------------------------
 def main():
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    print("Starting DesiFlix Search Bot...")
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), smart_search))
-    app.add_handler(CallbackQueryHandler(button_callback))
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
+    application.add_handler(CallbackQueryHandler(button_click_handler))
 
-    print("🚀 Double Ad & Filter Selection Bot Running Successfully!")
-    app.run_polling()
+    application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
