@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
@@ -18,14 +19,11 @@ BOT_TOKEN = "8973049098:AAGg8kO-C7uKzRjxpCddjlDAeanK_2mNQ_A"
 ADSTERRA_LINK = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
 MAIN_HUB_USERNAME = "@GRANDCINEMAS"
 
-# Render par aapke Web Service ka public URL (Render Dashboard se milega)
-# Jaise: https://desiflix-bot.onrender.com
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://desiflix-bot.onrender.com")
 
 app = Flask(__name__)
-
-# Telegram Application Setup
 telegram_app = None
+init_lock = asyncio.Lock()
 
 async def setup_bot():
     application = Application.builder().token(BOT_TOKEN).build()
@@ -36,7 +34,6 @@ async def setup_bot():
     
     await application.initialize()
     
-    # Webhook set karein taaki Telegram seedha yahan request bhej sake
     webhook_url = f"{RENDER_EXTERNAL_URL}/{BOT_TOKEN}"
     await application.bot.set_webhook(url=webhook_url)
     
@@ -142,7 +139,6 @@ def index():
 
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
-    import asyncio
     global telegram_app
     if telegram_app is None:
         loop = asyncio.new_event_loop()
@@ -156,9 +152,12 @@ def webhook():
     return "OK", 200
 
 if __name__ == "__main__":
-    import asyncio
-    loop = asyncio.get_event_loop()
-    telegram_app = loop.run_until_complete(setup_bot())
-    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        telegram_app = loop.run_until_complete(setup_bot())
+    except Exception as e:
+        logger.error(f"Initialization error: {e}")
+
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
