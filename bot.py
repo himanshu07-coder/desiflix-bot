@@ -20,7 +20,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"DesiFlix Ultimate AI Hub is Live and Running!")
+        self.wfile.write(b"DesiFlix Ultimate AI Content Hub is Live!")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -30,26 +30,24 @@ def run_web_server():
 threading.Thread(target=run_web_server, daemon=True).start()
 
 # ----------------------------------------------------
-# 2. CONFIGURATION & AI SETUP
+# 2. CONFIGURATION & MONETIZATION SETUP
 # ----------------------------------------------------
 BOT_TOKEN = "8973049098:AAGg8kO-C7uKzRjxpCddjlDAeanK_2mNQ_A"
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # Apni Gemini API key yahan daalein
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
 
-# Aapka Real Adsterra Link yahan set kar diya gaya hai
-AD_LINK_1 = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
-AD_LINK_2 = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
+# Your active Adsterra Direct Monetization Link
+ADSTERRA_LINK = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
 
-# Main Content Channel / Group Link jahan se user download/stream karega
-MAIN_CONTENT_HUB = "https://t.me/telegram"
+# Main Updates Channel Username
+MAIN_HUB_USERNAME = "@GRANDCINEMAS"
 
 genai.configure(api_key=GEMINI_API_KEY)
 ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ----------------------------------------------------
-# 3. AUTO-DELETION HELPER (Copyright Protection)
+# 3. AUTO-DELETION HELPER
 # ----------------------------------------------------
 async def schedule_message_deletion(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int, delay_seconds: int = 600):
-    """10 minute (600 seconds) baad message ko automatic delete kar dega"""
     await asyncio.sleep(delay_seconds)
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -60,86 +58,100 @@ async def schedule_message_deletion(context: ContextTypes.DEFAULT_TYPE, chat_id:
 # 4. BOT HANDLERS & LOGIC
 # ----------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    user_name = update.effective_user.first_name
+    
+    # If launched via Deep-Link button from channel
+    if args:
+        search_query = " ".join(args).replace("_", " ")
+        await process_content_results(update, context, search_query)
+        return
+
     welcome_text = (
-        "🌟 **Welcome to DesiFlix Ultimate Content & Course Hub!** 🌟\n\n"
-        "🎬 **Movies & Web Series:** Netflix, Amazon Prime, Hotstar, Zee5, etc.\n"
-        "📚 **Courses & Skills:** DSA in Java/Python, Web Dev, Video Editing, Design, & more!\n\n"
-        "👇 *Type any title or topic below to search!*"
+        f"👋 **Hey @{update.effective_user.username or user_name}!**\n\n"
+        f"🎬 **Results ready for your query.**\n"
+        f"Explore our hubs:\n"
+        f"👉 {MAIN_HUB_USERNAME} |\n\n"
+        f"👇 *Type any Movie, Web Series, or Course name to get instant links!*"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
 async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text.strip()
-    
-    try:
-        prompt = f"User wants this movie/series or course: '{user_query}'. Provide a clean title and categorize it briefly. Keep it short."
-        response = ai_model.generate_content(prompt)
-        ai_summary = response.text.strip()
-    except Exception:
-        ai_summary = user_query
+    await process_content_results(update, context, user_query)
 
+async def process_content_results(update: Update, context: ContextTypes.DEFAULT_TYPE, query_text: str):
+    clean_title = query_text.title()
+    
+    # Dynamic list formatting (mimicking SearchIT layout)
     keyboard = [
-        [InlineKeyboardButton("🔓 Step 1: Complete Ad 1 (Unlock)", url=AD_LINK_1)],
-        [InlineKeyboardButton("🔓 Step 2: Complete Ad 2 (Verify)", url=AD_LINK_2)],
-        [InlineKeyboardButton("⚡ Proceed: Get File / Course Link", callback_data=f"get_content:{user_query[:30]}")]
+        [InlineKeyboardButton(f"[1.59 GB] {clean_title} 1080p 10Bit WEB DL Hindi-English", callback_data=f"ad_gate:{query_text[:20]}:1080p_hevc")],
+        [InlineKeyboardButton(f"[878.29 MB] {clean_title} 720p 10bit WEBRip 6CH HEVC", callback_data=f"ad_gate:{query_text[:20]}:720p_hevc")],
+        [InlineKeyboardButton(f"[452.33 MB] {clean_title} x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:20]}:480p")],
+        [InlineKeyboardButton(f"[1.23 GB] {clean_title} 720p x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:20]}:720p")],
+        [InlineKeyboardButton(f"[3.02 GB] {clean_title} 1080p x264 Multi-Audio", callback_data=f"send_file:{query_text[:20]}:1080p")],
+        [
+            InlineKeyboardButton("🗓️ 1/18", callback_data="page_noop"),
+            InlineKeyboardButton("NEXT ⏩", callback_data="page_next")
+        ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(
-        f"🔍 **Requested Content:** `{user_query.title()}`\n\n"
-        f"🤖 **AI Analysis:** {ai_summary}\n\n"
-        "⚠️ **Free Access Rule:** To unlock free access, please complete both Ads above and then click **'Proceed'**!",
-        reply_markup=reply_markup,
-        parse_mode="Markdown"
+    header_text = (
+        f"👋 **Hey @{update.effective_user.username or update.effective_user.first_name}!**\n"
+        f"🎬 **Results ready for your query: `{clean_title}`**\n"
+        f"Explore our hubs:\n"
+        f"👉 {MAIN_HUB_USERNAME} |"
     )
+    
+    if update.message:
+        await update.message.reply_text(header_text, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=header_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer("Checking verification...")
+    await query.answer()
     
     data = query.data
     chat_id = query.message.chat_id
     
-    if data.startswith("get_content:"):
-        content_name = data.split(":", 1)[1]
+    if data.startswith("ad_gate:"):
+        _, item_name, quality = data.split(":", 2)
         
-        quality_keyboard = [
-            [
-                InlineKeyboardButton("📁 480p / Standard Pack", callback_data=f"send_final:{content_name}:480p"),
-                InlineKeyboardButton("📁 720p / HD Quality", callback_data=f"send_final:{content_name}:720p")
-            ],
-            [
-                InlineKeyboardButton("📁 1080p / Complete Course Pack", callback_data=f"send_final:{content_name}:1080p")
-            ]
+        # Mandatory Adsterra monetization gate before final file link
+        ad_keyboard = [
+            [InlineKeyboardButton("🔓 Unlock File (Ad 1)", url=ADSTERRA_LINK)],
+            [InlineKeyboardButton("⚡ Direct Download File", callback_data=f"send_file:{item_name}:{quality}")]
         ]
-        reply_markup = InlineKeyboardMarkup(quality_keyboard)
         
         await query.message.reply_text(
-            f"✅ **Ads Verified Successfully!**\n\n"
-            f"Select quality/format for `{content_name.title()}`:",
-            reply_markup=reply_markup,
+            f"🔑 **Monetization Step Required:**\n\n"
+            f"Click 'Unlock File' to complete ad verification for `{item_name.title()}` ({quality}), then click 'Direct Download File'.",
+            reply_markup=InlineKeyboardMarkup(ad_keyboard),
             parse_mode="Markdown"
         )
         
-    elif data.startswith("send_final:"):
+    elif data.startswith("send_file:"):
         _, item_name, quality = data.split(":", 2)
         
-        dl_keyboard = [
-            [InlineKeyboardButton(f"📥 Download / Stream {item_name.title()} ({quality})", url=MAIN_CONTENT_HUB)]
-        ]
-        reply_markup = InlineKeyboardMarkup(dl_keyboard)
-        
+        # Formatted delivery card mimicking SearchIT output
         delivery_text = (
-            f"🚀 **Your Content is Ready!**\n\n"
-            f"📌 **Title:** `{item_name.title()}`\n"
-            f"⚙️ **Quality/Format:** `{quality}`\n\n"
-            f"Click the button below to start immediate download/streaming.\n\n"
-            f"⚠️ **Security Notice:** This link and message will **automatically delete in 10 minutes** due to copyright protection."
+            f"🎬 **{item_name.title()} ({quality})**\n\n"
+            f"📄 `{item_name.title()}.WEBRip.x264.mkv`\n"
+            f"🔊 **Audio:** English, Hindi\n"
+            f"🌐 **Content Hub:** {MAIN_HUB_USERNAME}\n\n"
+            f"⚠️ **Auto-delete: 10 minutes**\n"
+            f"Forward to Saved Messages to keep it permanently."
         )
         
-        sent_msg = await query.message.reply_text(delivery_text, reply_markup=reply_markup, parse_mode="Markdown")
+        delete_btn = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⌛ Auto-Delete in 10 min ⌛", callback_data="timer_info")]
+        ])
         
-        # 10-minute auto-deletion timer (600 seconds)
+        sent_msg = await query.message.reply_text(delivery_text, reply_markup=delete_btn, parse_mode="Markdown")
+        
+        # Schedule auto-deletion (600s = 10 mins)
         asyncio.create_task(schedule_message_deletion(context, chat_id, sent_msg.message_id, 600))
 
 # ----------------------------------------------------
