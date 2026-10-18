@@ -1,8 +1,6 @@
 import os
-import asyncio
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
@@ -11,42 +9,41 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------
-# 1. KEEP-ALIVE SERVER FOR RENDER
-# ----------------------------------------------------
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"DesiFlix Universal SearchIT Bot is Active!")
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
-    server.serve_forever()
-
-threading.Thread(target=run_web_server, daemon=True).start()
-
-# ----------------------------------------------------
-# 2. CONFIGURATION SETUP
+# 1. CONFIGURATION SETUP
 # ----------------------------------------------------
 BOT_TOKEN = "8973049098:AAGg8kO-C7uKzRjxpCddjlDAeanK_2mNQ_A"
 ADSTERRA_LINK = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
 MAIN_HUB_USERNAME = "@GRANDCINEMAS"
 
-# ----------------------------------------------------
-# 3. AUTO-DELETION HELPER
-# ----------------------------------------------------
-async def schedule_message_deletion(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int, delay_seconds: int = 600):
-    await asyncio.sleep(delay_seconds)
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception:
-        pass
+# Render par aapke Web Service ka public URL (Render Dashboard se milega)
+# Jaise: https://desiflix-bot.onrender.com
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://desiflix-bot.onrender.com")
+
+app = Flask(__name__)
+
+# Telegram Application Setup
+telegram_app = None
+
+async def setup_bot():
+    application = Application.builder().token(BOT_TOKEN).build()
+    
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
+    application.add_handler(CallbackQueryHandler(button_click_handler))
+    
+    await application.initialize()
+    
+    # Webhook set karein taaki Telegram seedha yahan request bhej sake
+    webhook_url = f"{RENDER_EXTERNAL_URL}/{BOT_TOKEN}"
+    await application.bot.set_webhook(url=webhook_url)
+    
+    return application
 
 # ----------------------------------------------------
-# 4. BOT HANDLERS & LOGIC
+# 2. BOT HANDLERS & LOGIC
 # ----------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
@@ -102,7 +99,6 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     
     data = query.data
-    chat_id = query.message.chat_id
     
     if data.startswith("ad_gate:"):
         _, item_name, quality = data.split(":", 2)
@@ -135,24 +131,34 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             [InlineKeyboardButton("⌛ Auto-Delete in 10 min ⌛", callback_data="timer_info")]
         ])
         
-        sent_msg = await query.message.reply_text(caption_text, reply_markup=timer_btn, parse_mode="Markdown")
-        asyncio.create_task(schedule_message_deletion(context, chat_id, sent_msg.message_id, 600))
+        await query.message.reply_text(caption_text, reply_markup=timer_btn, parse_mode="Markdown")
 
 # ----------------------------------------------------
-# 5. MAIN RUNNER WITH WEBHOOK CLEANUP
+# 3. FLASK WEBHOOK ROUTE
 # ----------------------------------------------------
-async def post_init(application: Application):
-    # Webhook delete karke polling ko enforce karega
-    await application.bot.delete_webhook(drop_pending_updates=True)
+@app.route('/')
+def index():
+    return "DesiFlix Webhook Bot is Running Smoothly!"
 
-def main():
-    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+@app.route(f'/{BOT_TOKEN}', methods=['POST'])
+def webhook():
+    import asyncio
+    global telegram_app
+    if telegram_app is None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        telegram_app = loop.run_until_complete(setup_bot())
 
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
-    application.add_handler(CallbackQueryHandler(button_click_handler))
-
-    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    json_data = request.get_json(force=True)
+    update = Update.de_json(json_data, telegram_app.bot)
+    
+    asyncio.run(telegram_app.process_update(update))
+    return "OK", 200
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    loop = asyncio.get_event_loop()
+    telegram_app = loop.run_until_complete(setup_bot())
+    
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
