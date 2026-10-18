@@ -19,7 +19,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"DesiFlix Universal Hub is Active!")
+        self.wfile.write(b"DesiFlix Universal SearchIT Bot is Active!")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -139,16 +139,19 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         asyncio.create_task(schedule_message_deletion(context, chat_id, sent_msg.message_id, 600))
 
 # ----------------------------------------------------
-# 5. MAIN RUNNER
+# 5. MAIN RUNNER WITH WEBHOOK CLEANUP
 # ----------------------------------------------------
+async def post_init(application: Application):
+    # Webhook delete karke polling ko enforce karega
+    await application.bot.delete_webhook(drop_pending_updates=True)
+
 def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
     application.add_handler(CallbackQueryHandler(button_click_handler))
 
-    # drop_pending_updates=True lagane se purane conflict errors solve ho jayenge
     application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
