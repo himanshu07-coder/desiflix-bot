@@ -32,14 +32,12 @@ threading.Thread(target=run_web_server, daemon=True).start()
 # 2. CONFIGURATION & DATABASE SETUP
 # ----------------------------------------------------
 BOT_TOKEN = "8973049098:AAFOEeKA_omSf8a1eXdg-1NU6_VgEJ18hPc"
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # Apni Google AI Studio ki key yahan daalein
-AD_LINK_1 = "https://your-adsterra-direct-link.com"  # Aapka Adsterra Smartlink
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # Apni Google AI key yahan daalein
+AD_LINK_1 = "https://your-adsterra-direct-link.com"
 
-# Aapka Private Storage Channel ID jahan saari video files uploaded hain
+# Aapka Private Storage Channel ID jahan files hain
 STORAGE_CHANNEL_ID = -1001234567890 
 
-# Movie / Series Database (Movie Name -> Storage Channel Message IDs for each Quality)
-# Message ID woh number hai jo channel post ke link ke end mein hota hai
 MOVIE_DATABASE = {
     "bigg boss season 20": {"480p": 101, "720p": 102, "1080p": 103},
     "kgf chapter 2": {"480p": 10, "720p": 11, "1080p": 12}
@@ -61,7 +59,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text.strip()
     
-    # Gemini AI se query clean aur spelling correct karna
     try:
         prompt = f"Extract clean movie/series title in lowercase from: '{user_query}'. Return ONLY the clean title."
         response = ai_model.generate_content(prompt)
@@ -69,7 +66,6 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         clean_title = user_query.lower()
 
-    # Step 1: Adsterra unlock button + Next quality button
     keyboard = [
         [InlineKeyboardButton("🔓 Step 1: Unlock Quality Options (Ad)", url=AD_LINK_1)],
         [InlineKeyboardButton("⚡ Next: Select Quality & Get File", callback_data=f"show_q:{clean_title}")]
@@ -88,7 +84,7 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     
     data = query.data
-    target_chat_id = query.message.chat_id  # Jahan user ne request bheji thi wahi channel/group
+    target_chat_id = query.message.chat_id
     
     if data.startswith("show_q:"):
         movie_name = data.split("show_q:")[1]
@@ -119,7 +115,6 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.message.reply_text("⏳ **Sending Video File instantly to this channel...**")
             
             try:
-                # Storage channel se direct video file copy karke user ke channel par post karna
                 await context.bot.copy_message(
                     chat_id=target_chat_id,
                     from_chat_id=STORAGE_CHANNEL_ID,
@@ -142,7 +137,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
     application.add_handler(CallbackQueryHandler(button_click_handler))
 
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
