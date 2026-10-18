@@ -20,7 +20,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"DesiFlix Ultimate AI Content Hub is Live!")
+        self.wfile.write(b"DesiFlix Ultimate AI Hub is Live!")
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -30,16 +30,19 @@ def run_web_server():
 threading.Thread(target=run_web_server, daemon=True).start()
 
 # ----------------------------------------------------
-# 2. CONFIGURATION & MONETIZATION SETUP
+# 2. CONFIGURATION SETUP
 # ----------------------------------------------------
 BOT_TOKEN = "8973049098:AAGg8kO-C7uKzRjxpCddjlDAeanK_2mNQ_A"
 GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
 
-# Your active Adsterra Direct Monetization Link
+# Aapka Direct Adsterra Monetization Link
 ADSTERRA_LINK = "https://asiafilm.org/4/9fff5fa87f389039e2bb5eed7db9bdae"
 
-# Main Updates Channel Username
+# Aapka Main Channel Username
 MAIN_HUB_USERNAME = "@GRANDCINEMAS"
+
+# ⚠️ APNE PRIVATE STORAGE CHANNEL KA NUMERIC ID YAHAN DAALEIN (e.g. -100123456789)
+STORAGE_CHANNEL_ID = -100123456789  
 
 genai.configure(api_key=GEMINI_API_KEY)
 ai_model = genai.GenerativeModel('gemini-1.5-flash')
@@ -61,7 +64,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     user_name = update.effective_user.first_name
     
-    # If launched via Deep-Link button from channel
     if args:
         search_query = " ".join(args).replace("_", " ")
         await process_content_results(update, context, search_query)
@@ -72,7 +74,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎬 **Results ready for your query.**\n"
         f"Explore our hubs:\n"
         f"👉 {MAIN_HUB_USERNAME} |\n\n"
-        f"👇 *Type any Movie, Web Series, or Course name to get instant links!*"
+        f"👇 *Type any Movie, Web Series, or Course name to search!*"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
@@ -83,13 +85,13 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def process_content_results(update: Update, context: ContextTypes.DEFAULT_TYPE, query_text: str):
     clean_title = query_text.title()
     
-    # Dynamic list formatting (mimicking SearchIT layout)
+    # Exact SearchIT Layout Simulation
     keyboard = [
-        [InlineKeyboardButton(f"[1.59 GB] {clean_title} 1080p 10Bit WEB DL Hindi-English", callback_data=f"ad_gate:{query_text[:20]}:1080p_hevc")],
-        [InlineKeyboardButton(f"[878.29 MB] {clean_title} 720p 10bit WEBRip 6CH HEVC", callback_data=f"ad_gate:{query_text[:20]}:720p_hevc")],
-        [InlineKeyboardButton(f"[452.33 MB] {clean_title} x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:20]}:480p")],
-        [InlineKeyboardButton(f"[1.23 GB] {clean_title} 720p x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:20]}:720p")],
-        [InlineKeyboardButton(f"[3.02 GB] {clean_title} 1080p x264 Multi-Audio", callback_data=f"send_file:{query_text[:20]}:1080p")],
+        [InlineKeyboardButton(f"[1.59 GB] {clean_title} 1080p 10Bit WEB DL Hindi-English", callback_data=f"ad_gate:{query_text[:15]}:1080p")],
+        [InlineKeyboardButton(f"[878.29 MB] {clean_title} 720p 10bit WEBRip 6CH HEVC", callback_data=f"ad_gate:{query_text[:15]}:720p_hevc")],
+        [InlineKeyboardButton(f"[452.33 MB] {clean_title} x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:15]}:480p")],
+        [InlineKeyboardButton(f"[1.23 GB] {clean_title} 720p x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:15]}:720p")],
+        [InlineKeyboardButton(f"[3.02 GB] {clean_title} 1080p x264 Multi-Audio", callback_data=f"ad_gate:{query_text[:15]}:1080p_full")],
         [
             InlineKeyboardButton("🗓️ 1/18", callback_data="page_noop"),
             InlineKeyboardButton("NEXT ⏩", callback_data="page_next")
@@ -119,24 +121,23 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if data.startswith("ad_gate:"):
         _, item_name, quality = data.split(":", 2)
         
-        # Mandatory Adsterra monetization gate before final file link
+        # Mandatory Adsterra monetization gate
         ad_keyboard = [
-            [InlineKeyboardButton("🔓 Unlock File (Ad 1)", url=ADSTERRA_LINK)],
-            [InlineKeyboardButton("⚡ Direct Download File", callback_data=f"send_file:{item_name}:{quality}")]
+            [InlineKeyboardButton("🔓 Step 1: Open Adsterra Sponsor", url=ADSTERRA_LINK)],
+            [InlineKeyboardButton("⚡ Step 2: Get File / Movie Link", callback_data=f"deliver_file:{item_name}:{quality}")]
         ]
         
         await query.message.reply_text(
-            f"🔑 **Monetization Step Required:**\n\n"
-            f"Click 'Unlock File' to complete ad verification for `{item_name.title()}` ({quality}), then click 'Direct Download File'.",
+            f"⚠️ **Monetization Check Required:**\n\n"
+            f"Please click **'Step 1'** to complete sponsorship, then tap **'Step 2'** to receive `{item_name.title()}` ({quality}) instantly!",
             reply_markup=InlineKeyboardMarkup(ad_keyboard),
             parse_mode="Markdown"
         )
         
-    elif data.startswith("send_file:"):
+    elif data.startswith("deliver_file:"):
         _, item_name, quality = data.split(":", 2)
         
-        # Formatted delivery card mimicking SearchIT output
-        delivery_text = (
+        caption_text = (
             f"🎬 **{item_name.title()} ({quality})**\n\n"
             f"📄 `{item_name.title()}.WEBRip.x264.mkv`\n"
             f"🔊 **Audio:** English, Hindi\n"
@@ -145,13 +146,14 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             f"Forward to Saved Messages to keep it permanently."
         )
         
-        delete_btn = InlineKeyboardMarkup([
+        timer_btn = InlineKeyboardMarkup([
             [InlineKeyboardButton("⌛ Auto-Delete in 10 min ⌛", callback_data="timer_info")]
         ])
         
-        sent_msg = await query.message.reply_text(delivery_text, reply_markup=delete_btn, parse_mode="Markdown")
+        # Send formatted file details message
+        sent_msg = await query.message.reply_text(caption_text, reply_markup=timer_btn, parse_mode="Markdown")
         
-        # Schedule auto-deletion (600s = 10 mins)
+        # Schedule message auto-deletion after 600s (10 min)
         asyncio.create_task(schedule_message_deletion(context, chat_id, sent_msg.message_id, 600))
 
 # ----------------------------------------------------
