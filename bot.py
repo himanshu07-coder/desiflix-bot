@@ -34,9 +34,9 @@ threading.Thread(target=run_web_server, daemon=True).start()
 # ----------------------------------------------------
 # Updated Bot Token
 BOT_TOKEN = "8973049098:AAGg8kO-C7uKzRjxpCddjlDAeanK_2mNQ_A"
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # Apni Gemini API Key yahan paste karein
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # Gemini API Key keessan asitti galchaa
 
-# Adsterra Monetization Direct Links
+# Adsterra Direct Links
 AD_LINK_1 = "https://your-adsterra-link-1.com"
 AD_LINK_2 = "https://your-adsterra-link-2.com"
 
@@ -47,10 +47,9 @@ genai.configure(api_key=GEMINI_API_KEY)
 ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ----------------------------------------------------
-# 3. AUTO-DELETION HELPER (Copyright Protection)
+# 3. AUTO-DELETION HELPER
 # ----------------------------------------------------
 async def schedule_message_deletion(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int, delay_seconds: int = 600):
-    """10 minute (600 seconds) baad message ko automatically delete kar dega"""
     await asyncio.sleep(delay_seconds)
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -65,14 +64,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🌟 **Welcome to DesiFlix Ultimate Content & Course Hub!** 🌟\n\n"
         "🎬 **Movies & Web Series:** Netflix, Amazon Prime, Hotstar, Zee5, etc.\n"
         "📚 **Courses & Skills:** DSA in Java/Python, Web Dev, Video Editing, Design, & more!\n\n"
-        "👇 *Jo bhi chahiye uska naam yahan type karein, bot turant dhoond kar dega!*"
+        "👇 *Maqaa waan barbaaddanii asitti barreessaa!*"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
 async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text.strip()
     
-    # Gemini AI formatting
     try:
         prompt = f"User wants this movie/series or course: '{user_query}'. Provide a clean title and categorize it briefly. Keep it short."
         response = ai_model.generate_content(prompt)
@@ -80,7 +78,6 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         ai_summary = user_query
 
-    # 2 Step Ad Unlocking Flow
     keyboard = [
         [InlineKeyboardButton("🔓 Step 1: Complete Ad 1 (Unlock)", url=AD_LINK_1)],
         [InlineKeyboardButton("🔓 Step 2: Complete Ad 2 (Verify)", url=AD_LINK_2)],
@@ -91,7 +88,7 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"🔍 **Requested Content:** `{user_query.title()}`\n\n"
         f"🤖 **AI Analysis:** {ai_summary}\n\n"
-        "⚠️ **Free Access Rule:** Paid/Exclusive content free mein lene ke liye pehle **dono Ads** complete karein, phir **'Proceed'** button dabayein!",
+        "⚠️ **Free Access Rule:** Beeksisa (Ads) lachuu xumuraa, san booda **'Proceed'** cuqaasaa!",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -119,7 +116,7 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await query.message.reply_text(
             f"✅ **Ads Verified Successfully!**\n\n"
-            f"Apni pasand ki quality ya format select karein `{content_name.title()}` ke liye:",
+            f"Qulqullina/Format dooradhaa `{content_name.title()}` fiif:",
             reply_markup=reply_markup,
             parse_mode="Markdown"
         )
@@ -132,7 +129,25 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📌 **Title:** `{item_name.title()}`\n"
             f"⚙️ **Quality/Format:** `{quality}`\n\n"
             f"📥 [Click Here to Access / Download File]({MAIN_STORAGE_LINK})\n\n"
-            f"⚠️ **Security Notice:** Copyright protection ki wajah se yeh file/link exactly **10 minute mein automatic delete** ho jayegi. Kripya ise abhi save kar lein!"
+            f"⚠️ **Security Notice:** Ergaan kun **daqiiqaa 10 keessatti kan haqamu** ta'a."
         )
         
-        sent_msg = await query.message.reply_text(delivery_text,
+        sent_msg = await query.message.reply_text(delivery_text, parse_mode="Markdown")
+        
+        # 10-minute deletion
+        asyncio.create_task(schedule_message_deletion(context, chat_id, sent_msg.message_id, 600))
+
+# ----------------------------------------------------
+# 5. MAIN RUNNER
+# ----------------------------------------------------
+def main():
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler))
+    application.add_handler(CallbackQueryHandler(button_click_handler))
+
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+if __name__ == "__main__":
+    main()
