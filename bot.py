@@ -38,7 +38,7 @@ async def setup_bot():
     return application
 
 # ----------------------------------------------------
-# BOT HANDLERS (3-STEP EARNING & DELIVERY FLOW)
+# BOT HANDLERS (3-STEP EARNING & FILE DELIVERY FLOW)
 # ----------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
@@ -61,7 +61,7 @@ async def search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_search_results(update: Update, context: ContextTypes.DEFAULT_TYPE, query_text: str):
     clean_title = query_text.title()
     
-    # SearchIT style list for user
+    # Search options list for user
     keyboard = [
         [InlineKeyboardButton(f"[2.26 GB] {clean_title} 1080p BluRay", callback_data=f"ad_gate:{query_text[:12]}:1080p")],
         [InlineKeyboardButton(f"[1.10 GB] {clean_title} 720p BluRay", callback_data=f"ad_gate:{query_text[:12]}:720p")],
@@ -90,7 +90,7 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if data.startswith("ad_gate:"):
         _, item_name, quality = data.split(":", 2)
         
-        # STEP 2: Adsterra Monetization Gate (User clicks ad, then gets file)
+        # Step 2: Adsterra Monetization Gate
         ad_keyboard = [
             [InlineKeyboardButton("🔓 Step 1: Open Sponsor Ad (Earn)", url=ADSTERRA_LINK)],
             [InlineKeyboardButton("⚡ Step 2: Get File Now", callback_data=f"deliver:{item_name}:{quality}")]
@@ -108,22 +108,29 @@ async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     elif data.startswith("deliver:"):
         _, item_name, quality = data.split(":", 2)
         
-        # STEP 3: Final File Delivery with 1-Minute Auto-Delete Timer[span_2](start_span)[span_2](end_span)
         file_caption = (
             f"🚀 **{item_name.title()} ({quality})**\n\n"
             f"📄 `{item_name.title()}_File.mkv`\n"
             f"🌐 **Hub:** {MAIN_HUB_USERNAME}\n\n"
-            f"⚠️ **Security Notice:** Yeh message **1 minute** mein automatic delete ho jayega! Saved Messages mein forward kar lein[span_3](start_span)[span_3](end_span)."
+            f"⚠️ **Security Notice:** Yeh message **1 minute** mein automatic delete ho jayega! Saved Messages mein forward kar lein."
         )
         
         timer_btn = InlineKeyboardMarkup([
             [InlineKeyboardButton("⌛ Auto-Delete in 1 min ⌛", callback_data="timer_info")]
         ])
         
-        sent_msg = await query.message.reply_text(file_caption, reply_markup=timer_btn, parse_mode="Markdown")
-        
-        # Schedule 1-minute (60 seconds) deletion timer
-        asyncio.create_task(auto_delete_message(context, chat_id, sent_msg.message_id, 60))
+        # Step 3: Send actual file document with 1-minute auto-delete timer
+        try:
+            sent_msg = await context.bot.send_document(
+                chat_id=chat_id,
+                document="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+                caption=file_caption,
+                reply_markup=timer_btn,
+                parse_mode="Markdown"
+            )
+            asyncio.create_task(auto_delete_message(context, chat_id, sent_msg.message_id, 60))
+        except Exception as e:
+            logger.error(f"File send error: {e}")
 
 async def auto_delete_message(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int, delay: int):
     await asyncio.sleep(delay)
